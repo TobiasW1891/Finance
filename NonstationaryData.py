@@ -13,10 +13,11 @@ dt = 0.01
 
 def D1(x,t):
  #   return(-1.*x + 1. *np.sin(2.*np.pi *t) )
-    return(- 6*x**2 + 3.*t )#- 0.3*t**2)
-
+ #   return(- 6*x**2 + 3.*t - 0.3*t**2)
+ #   return(- 6*x**2 -2*x**3 + 3.*t )
+    return(- 6*x**1 + x**2 + 3*x**3.-2*x**4 + 1.*t**2   )
 def D2(x,t):
-    return(0.01)
+    return(0.02)
 
 x0 = 1.0
 X = np.zeros(T)
