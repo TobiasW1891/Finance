@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 from scipy import optimize
+import pandas as pd
+
 n_noise = 1
 n_Drift = 6 # simple model
 random.seed(1234)
@@ -14,7 +16,7 @@ def D1(x,t):
     return(- 6*x**2 + 1.*t)
 
 def D2(x,t):
-    return(0.1 *random.gauss(0,1))
+    return(0.01 *random.gauss(0,1))
 
 x0 = 1.0
 X = np.zeros(T)
@@ -136,7 +138,7 @@ x = Data
 # Set up variables for the hyperparameter search on threshold
 
 n_Cut = 5 # Number of reiterating
-hp1 = np.arange(0.00,1.5, 0.1) # list of possible thresholds
+hp1 = np.arange(0.00,1., 0.05) # list of possible thresholds
 n_Iteration = len(hp1) # Number of Hyperparameter search iterations
 score = np.empty(n_Iteration) # score for Hyperparameters
 
@@ -145,25 +147,40 @@ score = np.empty(n_Iteration) # score for Hyperparameters
 TestAl = np.ones(n_noise+n_Drift)   # sample parameters to start the search
 
 
-#### Some educated initial guesses
 
 
-def Diff_D1(Coefficients,x,dt):
-    dx = x[1:]-x[:-1]
-    D1 = poly(x.T,Coefficients)[:-1]
-    return(sum((dx[:,1]-D1)**2.))
-TestLS = optimize.minimize(Diff_D1,np.ones(n_Drift),args=(x,dt))
+#### Initial Guess
+Start = np.ones(n_noise+n_Drift)
+Start[0] = 0.01
 
-TestAl[0] = 0.01
-TestAl[1:] = TestLS["x"]
+Optim = optimize.minimize(neg_log_likelihood,Start,args=(x,dt))
+print(Optim["x"])
+
+###
+
+AlphaList = np.empty((n_Iteration, n_noise + n_Drift))
+
+for i in range(n_Iteration):
+    L_thresh = hp1[i]
+    estimate = Loop(x, dt, hp1[i], Optim["x"])
+    AlphaList[i,:] = estimate
+    score[i] = BIC(estimate, x, dt, hp1[i])
+    print(estimate)
+    print(hp1[i], score[i])
 
 
-TestAl = optimize.minimize(neg_log_likelihood,TestAl,args=(x,dt))
+np.savetxt('Synthetic_Alpha_Done.txt',AlphaList)
+d = {'Threshold': hp1, 'BIC': score}
+df = pd.DataFrame(data=d)
+print(df)
+df.to_csv("Synthetic_Score_BIC.csv")
 
-print(TestAl)
+###
+BestThreshold = df.loc[df['BIC'].idxmin()]['Threshold']
 
-
-
+print("Best threshold is", BestThreshold)
+BestCoeff = AlphaList[df["Threshold"] == BestThreshold,:]
+print("Corresponding coefficients are", BestCoeff[0][0].round(5), "for the noise and ", BestCoeff[0][1:].round(2), "for the drift terms.")
 
 
 
