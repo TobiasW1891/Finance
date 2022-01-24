@@ -5,7 +5,7 @@ from scipy import optimize
 import pandas as pd
 
 n_noise = 1
-n_Drift = 10 
+n_Drift = 10
 random.seed(1234)
 
 T = 1000
@@ -15,11 +15,12 @@ def D1(x,t):
  #   return(-1.*x + 1. *np.sin(2.*np.pi *t) )
  #   return(- 6*x**2 + 3.*t - 0.3*t**2)
  #   return(- 6*x**2 -2*x**3 + 3.*t )
-    return(- 6*x**1 + x**2 + 3*x**3.-2*x**4 + 1.*np.sin(t)   )
-def D2(x,t):
-    return(0.02)
+    return(- 6*x**1 + x**2  + 1.*np.sin(t)   ) # + 3*x**3.-2*x**4
 
-x0 = 1.0
+def D2(x,t):
+    return(0.01)
+
+x0 = 0.5
 X = np.zeros(T)
 X[0] = x0
 t = np.arange(T)*dt
@@ -28,14 +29,18 @@ t = np.arange(T)*dt
 for i in range(1,T):
     X[i] = X[i-1] + D1(X[i-1], t[i-1]) *dt + np.sqrt(D2(X[i-1], t[i-1]))*np.sqrt(dt)*random.gauss(0,1)
 
-plt.plot(t, X)
-plt.show()
-
 
 
 Data = np.empty((T,2))
 Data[:,0] = t
 Data[:,1] = X
+
+###
+plt.plot(t, X)
+plt.savefig("NonstationaryData")
+plt.show()
+
+
 
 ####
 
@@ -48,7 +53,7 @@ def poly(x,sigma):
     #               x[0]**4, x[0]**3 * x[1], x[0]**2 * x[1]**2, x[0]*x[1]**3, x[1]**4],
     #                dtype=object)
 
-	# decoupled dynamics: 
+	# decoupled dynamics:
     x_vec=np.array([ np.sin(x[0]), np.cos(x[0]),
                     x[0], x[0]**2., x[0]**3., x[0]**4., # only time x[0] = t
 					x[1], x[1]**2., x[1]**3., x[1]**4.],   # only observable x[1] = x
@@ -73,6 +78,26 @@ def D2(alpha,x):
     return alpha[0]*np.ones(x.shape[0])
 
 
+def LogPseudoPrior(alphas, TS):
+    # takes coefficients for the Polynomials of the Time Series TS and the Time Series itself
+    # returns prior for the given polynomial coefficients
+    # if absolute(data) range is smaller than 1: larger polynomials should be less likely
+    # else: higher polynomials more likely than smaller ones
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # In this code:
+    # alpha[7, 8, 9, 10] are polynomial coefficients of x
+
+    Coefficient = np.mean(abs(TS)) # characteristic value for the Time Series Data
+
+    Output = np.empty(len(alphas)) #
+
+    for i in range(len(alphas)):
+        # i=0 is linear polynomials, hence exponent always i+1
+        Output[i] = - np.abs(alphas[i]) / Coefficient**np.sqrt(i+1)
+    return(Output.mean()*(Coefficient<1.))
+
+
 #  Log Likelihood and negative logL
 
 def log_likelihood(alpha,x,dt):
@@ -92,7 +117,8 @@ def log_likelihood(alpha,x,dt):
         d2_inv = d2**(-1.)
         log_like = ( -0.5*np.log(d2) - 0.5 * d2_inv * d1**2./dt -np.log(dt)).sum()
 
-        return log_like
+        # LogPseudoPrior: x[:,1] is the real TS, alphas[7:] the four polynomial coefficients
+        return log_like + 0.001*LogPseudoPrior(alpha[7:], x[:,1])
     else:
         return -np.inf
 
@@ -139,6 +165,9 @@ def Loop(x, dt, L, a_Ini):
         Estimation[n_noise:] =  Estimation[n_noise:] * ( abs(Estimation[n_noise:] ) > L )
     return(Estimation)
 
+
+
+
 ######
 # For consistency with past codes: call Data x
 x = Data
@@ -146,7 +175,7 @@ x = Data
 # Set up variables for the hyperparameter search on threshold
 
 n_Cut = 5 # Number of reiterating
-hp1 = np.arange(0.00,0.2, 0.01) # list of possible thresholds
+hp1 = np.arange(0.00,0.21, 0.05) # list of possible thresholds
 n_Iteration = len(hp1) # Number of Hyperparameter search iterations
 score = np.empty(n_Iteration) # score for Hyperparameters
 
@@ -190,8 +219,21 @@ print("Best threshold is", BestThreshold)
 BestCoeff = AlphaList[df["Threshold"] == BestThreshold,:]
 print("Corresponding coefficients are", BestCoeff[0][0].round(5), "for the noise and ", BestCoeff[0][1:].round(2), "for the drift terms.")
 
-
-
+### Evaluate the polynomial in x
+xmin, xmax = min(X), max(X)
+xrange = np.linspace(xmin, xmax, 100)
+# true polynomial
+def TruePoly(x):
+    return(- 6*x**1 + x**2 + 3*x**3.-2*x**4)
+# Estimated polynomial coefficients
+def PolyHat(x):
+    vec_x = np.array([ x, x**2, x**3, x**4])
+    return(np.dot(BestCoeff[0][7:], vec_x))
+plt.hist(X, normed=True, alpha = 0.2, label="Data")
+plt.plot(xrange, TruePoly(xrange), label="True Polynomial")
+plt.plot(xrange, PolyHat(xrange), label="Estimation")
+plt.legend()
+plt.show()
 
 
 
