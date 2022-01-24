@@ -9,16 +9,15 @@ n_Drift = 10
 random.seed(1234)
 
 T = 1000
-dt = 0.01
+dt = 0.05
 
 def D1(x,t):
- #   return(-1.*x + 1. *np.sin(2.*np.pi *t) )
- #   return(- 6*x**2 + 3.*t - 0.3*t**2)
- #   return(- 6*x**2 -2*x**3 + 3.*t )
-    return(- 6*x**1 + x**2  + 1.*np.sin(t)   ) # + 3*x**3.-2*x**4
+
+#    return(- 6*x**1 + x**2  + 1.*np.sin(t)   ) # + 3*x**3.-2*x**4
+    return(-0.5*x**3. + 0.5*t)
 
 def D2(x,t):
-    return(0.01)
+    return(0.1)
 
 x0 = 0.5
 X = np.zeros(T)
@@ -175,7 +174,7 @@ x = Data
 # Set up variables for the hyperparameter search on threshold
 
 n_Cut = 5 # Number of reiterating
-hp1 = np.arange(0.00,0.21, 0.05) # list of possible thresholds
+hp1 = np.arange(0.00,0.31, 0.05) # list of possible thresholds
 n_Iteration = len(hp1) # Number of Hyperparameter search iterations
 score = np.empty(n_Iteration) # score for Hyperparameters
 
@@ -224,7 +223,7 @@ xmin, xmax = min(X), max(X)
 xrange = np.linspace(xmin, xmax, 100)
 # true polynomial
 def TruePoly(x):
-    return(- 6*x**1 + x**2 + 3*x**3.-2*x**4)
+    return(-0.5*x**3)
 # Estimated polynomial coefficients
 def PolyHat(x):
     vec_x = np.array([ x, x**2, x**3, x**4])
